@@ -2,181 +2,42 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>チェス（ルール判定付き）</title>
+  <title>チェス</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      background-color: #eee;
-      margin: 0;
-      padding: 20px;
-    }
-
-    h1 {
-      margin-top: 10px;
-    }
-
-    #board {
-      display: grid;
-      grid-template-columns: repeat(8, 60px);
-      grid-template-rows: repeat(8, 60px);
-      margin: 20px auto;
-      border: 3px solid #000;
-      width: 480px;
-      height: 480px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.5);
-    }
-
-    .square {
-      width: 60px;
-      height: 60px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 36px;
-      cursor: grab;
-      user-select: none;
-    }
-
-    .light {
-      background-color: #f0d9b5;
-    }
-
-    .dark {
-      background-color: #b58863;
-    }
-
-    /* ドラッグ中 */
-    .dragging {
-      opacity: 0.5;
-    }
-
-    #status {
-      font-weight: bold;
-      font-size: 18px;
-      margin-top: 15px;
-    }
-
-    button {
-      margin-top: 15px;
-      padding: 8px 16px;
-      font-size: 16px;
-      cursor: pointer;
-      background-color: #5865f2;
-      color: white;
-      border: none;
-      border-radius: 5px;
-    }
-
-    button:hover {
-      background-color: #4752c4;
-    }
+    body { text-align: center; font-family: Arial, sans-serif; }
+    #board { width: 400px; margin: 20px auto; }
+    button { padding: 10px 20px; margin-top: 20px; font-size: 16px; }
   </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.13.4/chess.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard.js/1.0.0/chessboard-1.0.0.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard.js/1.0.0/chessboard-1.0.0.min.css" />
 </head>
 <body>
-  <h1>チェス（ルール判定付き）</h1>
+  <h1>チェスで対戦！</h1>
   <div id="board"></div>
-  <div id="status"></div>
   <button onclick="resetGame()">リセット</button>
 
-  <!-- chess.js ライブラリ -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.13.4/chess.min.js"></script>
   <script>
-    const boardElement = document.getElementById('board');
-    const statusElement = document.getElementById('status');
-    const game = new Chess(); // ルール判定用ライブラリ
+    const game = new Chess();
 
-    // 駒の表示（Unicode）
-    const pieceIcons = {
-      'p': '♟', 'r': '♜', 'n': '♞', 'b': '♝', 'q': '♛', 'k': '♚',
-      'P': '♙', 'R': '♖', 'N': '♘', 'B': '♗', 'Q': '♕', 'K': '♔'
-    };
+    const board = Chessboard('board', {
+      draggable: true,
+      position: 'start',
+      onDrop: (source, target) => {
+        const move = game.move({ from: source, to: target, promotion: 'q' });
 
-    // 盤面を描画
-    function drawBoard() {
-      boardElement.innerHTML = '';
-      const board = game.board();
-      for (let row = 0; row < 8; row++) {
-        for (let col = 0; col < 8; col++) {
-          const square = document.createElement('div');
-          square.classList.add('square', (row + col) % 2 === 0 ? 'light' : 'dark');
-          const piece = board[row][col];
-          if (piece) {
-            square.textContent = pieceIcons[piece.color === 'w' ? piece.type.toUpperCase() : piece.type];
-          }
+        if (move === null) return 'snapback'; // 不正な手は戻す
 
-          square.dataset.row = row;
-          square.dataset.col = col;
-
-          // 駒があるマスだけドラッグ可能
-          square.draggable = !!piece;
-
-          square.addEventListener('dragstart', e => {
-            e.dataTransfer.setData('text/plain', JSON.stringify({ fromRow: row, fromCol: col }));
-            e.target.classList.add('dragging');
-          });
-
-          square.addEventListener('dragend', e => {
-            e.target.classList.remove('dragging');
-          });
-
-          square.addEventListener('dragover', e => e.preventDefault());
-
-          square.addEventListener('drop', e => {
-            e.preventDefault();
-            const data = JSON.parse(e.dataTransfer.getData('text/plain'));
-            handleMove(data.fromRow, data.fromCol, row, col);
-          });
-
-          boardElement.appendChild(square);
+        if (game.game_over()) {
+          setTimeout(() => alert("ゲーム終了！"), 100);
         }
       }
-      updateStatus();
-    }
+    });
 
-    // row, col をチェス座標（a1, h8 など）に変換
-    function toSquare(row, col) {
-      const files = ['a','b','c','d','e','f','g','h'];
-      return files[col] + (8 - row);
-    }
-
-    // 移動処理
-    function handleMove(fromRow, fromCol, toRow, toCol) {
-      const move = {
-        from: toSquare(fromRow, fromCol),
-        to: toSquare(toRow, toCol),
-        promotion: 'q'
-      };
-
-      const result = game.move(move);
-      if (result) {
-        drawBoard();
-      } else {
-        alert('その動きはできません！');
-      }
-    }
-
-    // ステータス更新
-    function updateStatus() {
-      if (game.isCheckmate()) {
-        statusElement.textContent = 'チェックメイト！ ' + (game.turn() === 'w' ? '黒の勝ち' : '白の勝ち');
-      } else if (game.isDraw()) {
-        statusElement.textContent = '引き分けです';
-      } else {
-        statusElement.textContent = (game.turn() === 'w' ? '白' : '黒') + 'の手番です' +
-          (game.in_check() ? '（チェック中）' : '');
-      }
-    }
-
-    // リセット
     function resetGame() {
       game.reset();
-      drawBoard();
+      board.start();
     }
-
-    // 初期表示
-    drawBoard();
   </script>
 </body>
 </html>
