@@ -3,73 +3,178 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Chess Game</title>
-  <!-- jQuery -->
-  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-  <!-- chess.js を必ず自作コードより先に読み込む -->
-  <script src="https://cdn.jsdelivr.net/npm/chess.js@1.0.0/dist/chess.min.js"></script>
+  <title>チェス（ルール判定付き）</title>
   <style>
     body {
       font-family: Arial, sans-serif;
       text-align: center;
+      background-color: #eee;
+      margin: 0;
+      padding: 20px;
     }
+
+    h1 {
+      margin-top: 10px;
+    }
+
     #board {
       display: grid;
-      grid-template-columns: repeat(8, 50px);
-      grid-template-rows: repeat(8, 50px);
+      grid-template-columns: repeat(8, 60px);
+      grid-template-rows: repeat(8, 60px);
       margin: 20px auto;
-      width: 400px;
-      border: 2px solid #000;
+      border: 3px solid #000;
+      width: 480px;
+      height: 480px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.5);
     }
+
     .square {
-      width: 50px;
-      height: 50px;
+      width: 60px;
+      height: 60px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 24px;
+      font-size: 32px;
+      cursor: grab;
+      user-select: none;
     }
+
     .light {
       background-color: #f0d9b5;
     }
+
     .dark {
       background-color: #b58863;
+    }
+
+    /* ドラッグ中 */
+    .dragging {
+      opacity: 0.5;
+    }
+
+    #status {
+      font-weight: bold;
+      font-size: 18px;
+      margin-top: 15px;
+    }
+
+    button {
+      margin-top: 15px;
+      padding: 8px 16px;
+      font-size: 16px;
+      cursor: pointer;
+      background-color: #5865f2;
+      color: white;
+      border: none;
+      border-radius: 5px;
+    }
+
+    button:hover {
+      background-color: #4752c4;
     }
   </style>
 </head>
 <body>
-  <h1>Chess Game</h1>
+  <h1>チェス（ルール判定付き）</h1>
   <div id="board"></div>
+  <div id="status"></div>
+  <button onclick="resetGame()">リセット</button>
 
+  <!-- chess.jsライブラリ -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.13.4/chess.min.js"></script>
   <script>
-    $(document).ready(function () {
-      // Chess.js を利用してゲームを初期化
-      const game = new Chess();
+    const boardElement = document.getElementById('board');
+    const statusElement = document.getElementById('status');
+    const game = new Chess(); // チェスのルール管理用
 
-      // 盤面を描画
-      function drawBoard() {
-        const board = $('#board');
-        board.empty();
+    // 駒の表示（Unicode）
+    const pieceIcons = {
+      'p': '♟', 'r': '♜', 'n': '♞', 'b': '♝', 'q': '♛', 'k': '♚',
+      'P': '♙', 'R': '♖', 'N': '♘', 'B': '♗', 'Q': '♕', 'K': '♔'
+    };
 
-        const squares = game.board();
-        for (let i = 0; i < 8; i++) {
-          for (let j = 0; j < 8; j++) {
-            const square = squares[i][j];
-            const color = (i + j) % 2 === 0 ? 'light' : 'dark';
-            const piece = square ? square.type.toUpperCase() : '';
-            const div = $('<div>')
-              .addClass('square ' + color)
-              .text(piece);
-            board.append(div);
+    // 盤面を描画
+    function drawBoard() {
+      boardElement.innerHTML = '';
+      const board = game.board();
+      for (let i = 0; i < 8; i++) {
+        for (let j = 0; j < 8; j++) {
+          const square = document.createElement('div');
+          square.classList.add('square', (i + j) % 2 === 0 ? 'light' : 'dark');
+          const piece = board[i][j];
+          if (piece) {
+            square.textContent = pieceIcons[piece.color === 'w' ? piece.type.toUpperCase() : piece.type];
           }
+
+          square.dataset.row = i;
+          square.dataset.col = j;
+
+          square.draggable = !!piece; // 駒があるマスだけドラッグ可能
+
+          square.addEventListener('dragstart', e => {
+            e.dataTransfer.setData('text/plain', JSON.stringify({ fromRow: i, fromCol: j }));
+            e.target.classList.add('dragging');
+          });
+
+          square.addEventListener('dragend', e => {
+            e.target.classList.remove('dragging');
+          });
+
+          square.addEventListener('dragover', e => e.preventDefault());
+
+          square.addEventListener('drop', e => {
+            e.preventDefault();
+            const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+            handleMove(data.fromRow, data.fromCol, i, j);
+          });
+
+          boardElement.appendChild(square);
         }
       }
+      updateStatus();
+    }
 
-      // 初期盤面を表示
+    // 位置をチェス表記（a1, h8など）に変換
+    function toSquare(row, col) {
+      const files = ['a','b','c','d','e','f','g','h'];
+      return files[col] + (8 - row);
+    }
+
+    // 移動処理
+    function handleMove(fromRow, fromCol, toRow, toCol) {
+      const move = {
+        from: toSquare(fromRow, fromCol),
+        to: toSquare(toRow, toCol),
+        promotion: 'q'
+      };
+
+      const result = game.move(move);
+      if (result) {
+        drawBoard();
+      } else {
+        alert('その動きはできません！');
+      }
+    }
+
+    // ステータス更新
+    function updateStatus() {
+      if (game.isCheckmate()) {
+        statusElement.textContent = 'チェックメイト！ ' + (game.turn() === 'w' ? '黒の勝ち' : '白の勝ち');
+      } else if (game.isDraw()) {
+        statusElement.textContent = '引き分けです';
+      } else {
+        statusElement.textContent = (game.turn() === 'w' ? '白' : '黒') + 'の手番です' + (game.in_check() ? '（チェック中）' : '');
+      }
+    }
+
+    // リセット
+    function resetGame() {
+      game.reset();
       drawBoard();
+    }
 
-      console.log("現在の盤面（FEN）:", game.fen());
-    });
+    // 初期表示
+    drawBoard();
   </script>
 </body>
 </html>
