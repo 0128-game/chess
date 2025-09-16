@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>学習するAIチェス</title>
-    
     <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
-    
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -93,10 +91,8 @@
     (function() {
         $(document).ready(function() {
             let board = null;
-            
-            // ★★★ 修正点: 'new Chess()' から 'new chess.Chess()' へ変更 ★★★
-            const game = new chess.Chess(); 
-            
+            const game = typeof chess !== 'undefined' ? new chess.Chess() : new Chess(); 
+
             const $status = $('#status');
             const $aiThinking = $('#ai-thinking');
 
@@ -118,15 +114,16 @@
                 }
                 $status.text(statusText);
             }
-            
+
             function recordGameResult() {
-                const pgn = game.pgn({ max_width: 5 });
-                const key = pgn.split('\n')[3] || pgn;
+                const key = game.fen();
                 if (!learningData[key]) {
                     learningData[key] = { ai_win: 0, ai_loss: 0, draw: 0 };
                 }
+
+                const winner = game.turn() === 'w' ? 'black' : 'white';
                 if (game.isCheckmate()) {
-                    if (game.turn() === 'w') {
+                    if (winner === 'black') {
                         learningData[key].ai_win++;
                     } else {
                         learningData[key].ai_loss++;
@@ -139,9 +136,9 @@
             }
 
             const pieceValue = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 900 };
-            function evaluateBoard(board) {
+            function evaluateBoard(boardArray) {
                 let totalEvaluation = 0;
-                board.forEach(row => {
+                boardArray.forEach(row => {
                     row.forEach(piece => {
                         if (piece) {
                             totalEvaluation += (piece.color === 'w' ? pieceValue[piece.type] : -pieceValue[piece.type]);
@@ -152,8 +149,10 @@
             }
 
             function minimax(game, depth, alpha, beta, isMaximizingPlayer) {
-                if (depth === 0) return -evaluateBoard(game.board());
+                if (depth === 0) return evaluateBoard(game.board());
                 const moves = game.moves();
+                if (moves.length === 0) return evaluateBoard(game.board());
+
                 if (isMaximizingPlayer) {
                     let bestVal = -Infinity;
                     for (const move of moves) {
@@ -181,8 +180,8 @@
                 let bestMove = null;
                 let bestValue = -Infinity;
                 const moves = game.moves();
-                const pgn = game.pgn({ max_width: 5 });
-                const key = pgn.split('\n')[3] || pgn;
+
+                const key = game.fen();
                 if (learningData[key] && learningData[key].ai_loss > learningData[key].ai_win) {
                     console.log("AI: この展開は分が悪い... 少し違う手を試そう。");
                     moves.sort(() => Math.random() - 0.5);
@@ -205,6 +204,7 @@
                 $aiThinking.text('考え中...');
                 setTimeout(() => {
                     const move = getAIBestMove();
+                    if (!move) return; // エラー回避
                     game.move(move);
                     board.position(game.fen());
                     updateStatus();
@@ -214,18 +214,14 @@
                     }
                 }, 250);
             }
-            
+
             function onDragStart(source, piece) {
                 return !game.isGameOver() && game.turn() === 'w' && piece.startsWith('w');
             }
 
             function onDrop(source, target) {
-                try {
-                    const move = game.move({ from: source, to: target, promotion: 'q' });
-                    if (move === null) return 'snapback';
-                } catch (e) {
-                    return 'snapback';
-                }
+                const move = game.move({ from: source, to: target, promotion: 'q' });
+                if (move === null) return 'snapback';
                 updateStatus();
                 if (game.isGameOver()) {
                     recordGameResult();
@@ -254,8 +250,6 @@
                 board.start();
                 updateStatus();
             });
-
-
 
             $('#clear-memory-button').on('click', () => {
                 if (confirm("本当にAIの記憶（学習データ）をすべて消去しますか？")) {
