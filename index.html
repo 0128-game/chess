@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>学習するAIチェス</title>
+    <title>学習するAIチェス (修正版)</title>
     
     <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
     
@@ -93,7 +93,10 @@
     (function() {
         $(document).ready(function() {
             let board = null;
-            const game = new chess.Chess();
+            
+            // ★★★ 修正点: 'new chess.Chess()' から 'new Chess()' へ変更 ★★★
+            const game = new Chess(); 
+            
             const $status = $('#status');
             const $aiThinking = $('#ai-thinking');
 
