@@ -34,7 +34,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 32px;
+      font-size: 36px;
       cursor: grab;
       user-select: none;
     }
@@ -80,12 +80,12 @@
   <div id="status"></div>
   <button onclick="resetGame()">リセット</button>
 
-  <!-- chess.jsライブラリ -->
+  <!-- chess.js ライブラリ -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.13.4/chess.min.js"></script>
   <script>
     const boardElement = document.getElementById('board');
     const statusElement = document.getElementById('status');
-    const game = new Chess(); // チェスのルール管理用
+    const game = new Chess(); // ルール判定用ライブラリ
 
     // 駒の表示（Unicode）
     const pieceIcons = {
@@ -97,22 +97,23 @@
     function drawBoard() {
       boardElement.innerHTML = '';
       const board = game.board();
-      for (let i = 0; i < 8; i++) {
-        for (let j = 0; j < 8; j++) {
+      for (let row = 0; row < 8; row++) {
+        for (let col = 0; col < 8; col++) {
           const square = document.createElement('div');
-          square.classList.add('square', (i + j) % 2 === 0 ? 'light' : 'dark');
-          const piece = board[i][j];
+          square.classList.add('square', (row + col) % 2 === 0 ? 'light' : 'dark');
+          const piece = board[row][col];
           if (piece) {
             square.textContent = pieceIcons[piece.color === 'w' ? piece.type.toUpperCase() : piece.type];
           }
 
-          square.dataset.row = i;
-          square.dataset.col = j;
+          square.dataset.row = row;
+          square.dataset.col = col;
 
-          square.draggable = !!piece; // 駒があるマスだけドラッグ可能
+          // 駒があるマスだけドラッグ可能
+          square.draggable = !!piece;
 
           square.addEventListener('dragstart', e => {
-            e.dataTransfer.setData('text/plain', JSON.stringify({ fromRow: i, fromCol: j }));
+            e.dataTransfer.setData('text/plain', JSON.stringify({ fromRow: row, fromCol: col }));
             e.target.classList.add('dragging');
           });
 
@@ -125,7 +126,7 @@
           square.addEventListener('drop', e => {
             e.preventDefault();
             const data = JSON.parse(e.dataTransfer.getData('text/plain'));
-            handleMove(data.fromRow, data.fromCol, i, j);
+            handleMove(data.fromRow, data.fromCol, row, col);
           });
 
           boardElement.appendChild(square);
@@ -134,7 +135,7 @@
       updateStatus();
     }
 
-    // 位置をチェス表記（a1, h8など）に変換
+    // row, col をチェス座標（a1, h8 など）に変換
     function toSquare(row, col) {
       const files = ['a','b','c','d','e','f','g','h'];
       return files[col] + (8 - row);
@@ -163,7 +164,8 @@
       } else if (game.isDraw()) {
         statusElement.textContent = '引き分けです';
       } else {
-        statusElement.textContent = (game.turn() === 'w' ? '白' : '黒') + 'の手番です' + (game.in_check() ? '（チェック中）' : '');
+        statusElement.textContent = (game.turn() === 'w' ? '白' : '黒') + 'の手番です' +
+          (game.in_check() ? '（チェック中）' : '');
       }
     }
 
