@@ -13,7 +13,7 @@
       font-family: Arial, sans-serif;
       height: 100vh;
     }
-    #board {
+    chess-board {
       width: 400px;
       margin-bottom: 15px;
     }
@@ -23,10 +23,12 @@
     }
   </style>
 
-  <!-- chessboardjsx と同等の新ライブラリ -->
+  <!-- chessboard-element（Web Components版） -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/chessboard-element@1.2.0/dist/chessboard-1.2.0.min.css">
-  <script src="https://cdn.jsdelivr.net/npm/chess.js@1.0.0/dist/chess.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chessboard-element@1.2.0/dist/chessboard-1.2.0.min.js"></script>
+
+  <!-- chess.js（ルール判定用） -->
+  <script src="https://cdn.jsdelivr.net/npm/chess.js@1.0.0/dist/chess.min.js"></script>
 </head>
 <body>
   <h1>ChatGPTとチェス対戦</h1>
@@ -38,7 +40,7 @@
     const board = document.getElementById('board');
     const statusEl = document.getElementById('status');
 
-    // 駒をドラッグして離したときの処理
+    // 駒を動かしたときの処理
     board.addEventListener('drop', (e) => {
       const source = e.detail.source;
       const target = e.detail.target;
@@ -46,7 +48,7 @@
       const move = game.move({
         from: source,
         to: target,
-        promotion: 'q' // 常にクイーン昇格
+        promotion: 'q' // 常にクイーンに昇格
       });
 
       // 不正な手は元に戻す
@@ -57,7 +59,7 @@
 
       updateStatus();
 
-      // AIが指す
+      // AIがランダムに応手
       setTimeout(makeAIMove, 250);
     });
 
@@ -65,8 +67,8 @@
       if (game.game_over()) return;
 
       const possibleMoves = game.moves();
-      const randomIdx = Math.floor(Math.random() * possibleMoves.length);
-      const move = game.move(possibleMoves[randomIdx]);
+      const randomMove = possibleMoves[Math.floor(Math.random() * possibleMoves.length)];
+      game.move(randomMove);
 
       board.setPosition(game.fen());
       updateStatus();
