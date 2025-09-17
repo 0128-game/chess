@@ -1,271 +1,92 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>学習するAIチェス</title>
-    
-    <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
-    
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            background-color: #2c2f33;
-            color: #ffffff;
-            margin: 0;
-            padding: 10px;
-            box-sizing: border-box;
-        }
-        .container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            background-color: #36393f;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
-            max-width: 100%;
-        }
-        h1 {
-            font-size: clamp(1.5rem, 5vw, 2.2rem);
-            margin-top: 0;
-            margin-bottom: 20px;
-        }
-        .board {
-            width: 90vw;
-            max-width: 450px;
-        }
-        .info {
-            margin-top: 20px;
-            font-size: clamp(1rem, 4vw, 1.1rem);
-            text-align: center;
-        }
-        #status, #ai-thinking {
-            font-weight: bold;
-            display: block;
-            min-height: 1.2em;
-            margin-top: 5px;
-        }
-        #status { color: #f9a825; }
-        #ai-thinking { color: #4fc3f7; }
-        .buttons {
-            margin-top: 15px;
-        }
-        button {
-            background-color: #5865f2;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            margin: 5px;
-            font-size: 1rem;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: background-color 0.2s ease;
-        }
-        button:hover { background-color: #4752c4; }
-        #clear-memory-button { background-color: #ed4245; }
-        #clear-memory-button:hover { background-color: #c83739; }
-    </style>
+  <meta charset="UTF-8">
+  <title>ChatGPTとチェス対戦</title>
+  <style>
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      height: 100vh;
+      background: #f0f0f0;
+      font-family: Arial, sans-serif;
+    }
+    #board {
+      width: 400px;
+      margin-bottom: 15px;
+    }
+    #status {
+      font-size: 18px;
+      font-weight: bold;
+    }
+  </style>
+
+  <!-- ① jQueryを一番最初に読み込む -->
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+  <!-- ② chessboard.jsとchess.js -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.js"></script>
 </head>
 <body>
-    <div class="container">
-        <h1>学習するAIチェス</h1>
-        <div id="board" class="board"></div>
-        <div class="info">
-            <span id="status"></span>
-            <span id="ai-thinking"></span>
-        </div>
-        <div class="buttons">
-            <button id="reset-button">リセット</button>
-            <button id="clear-memory-button">AIの記憶を消去</button>
-        </div>
-    </div>
+  <h1>ChatGPTとチェス対戦</h1>
+  <div id="board"></div>
+  <div id="status">あなたが白です。先手を指してください。</div>
 
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/1.0.0-beta.6/chess.min.js"></script>
-    <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
+  <script>
+    const game = new Chess();
+    const board = Chessboard('board', {
+      draggable: true,
+      position: 'start',
+      onDrop: onDrop
+    });
 
-    <script>
-    (function() {
-        $(document).ready(function() {
-            let board = null;
-            
-            // ★★★ 修正点: 'new Chess()' から 'new chess.Chess()' へ変更 ★★★
-            const game = new chess.Chess(); 
-            
-            const $status = $('#status');
-            const $aiThinking = $('#ai-thinking');
+    const statusEl = document.getElementById('status');
 
-            const AI_SEARCH_DEPTH = 3;
-            let learningData = JSON.parse(localStorage.getItem('chessAIData')) || {};
+    function onDrop(source, target) {
+      const move = game.move({
+        from: source,
+        to: target,
+        promotion: 'q' // 常にクイーン昇格
+      });
 
-            function updateStatus() {
-                let statusText = '';
-                const moveColor = game.turn() === 'b' ? '黒' : '白';
-                if (game.isCheckmate()) {
-                    statusText = `チェックメイト！ ${moveColor === '白' ? '黒' : '白'}の勝ちです。`;
-                } else if (game.isDraw()) {
-                    statusText = '引き分けです。';
-                } else {
-                    statusText = `${moveColor}の手番です。`;
-                    if (game.isCheck()) {
-                        statusText += ' (チェックされています)';
-                    }
-                }
-                $status.text(statusText);
-            }
-            
-            function recordGameResult() {
-                const pgn = game.pgn({ max_width: 5 });
-                const key = pgn.split('\n')[3] || pgn;
-                if (!learningData[key]) {
-                    learningData[key] = { ai_win: 0, ai_loss: 0, draw: 0 };
-                }
-                if (game.isCheckmate()) {
-                    if (game.turn() === 'w') {
-                        learningData[key].ai_win++;
-                    } else {
-                        learningData[key].ai_loss++;
-                    }
-                } else if (game.isDraw()) {
-                    learningData[key].draw++;
-                }
-                localStorage.setItem('chessAIData', JSON.stringify(learningData));
-                console.log("AI: この対局の結果を記憶しました。", learningData);
-            }
+      // 不正な手なら元に戻す
+      if (move === null) return 'snapback';
 
-            const pieceValue = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 900 };
-            function evaluateBoard(board) {
-                let totalEvaluation = 0;
-                board.forEach(row => {
-                    row.forEach(piece => {
-                        if (piece) {
-                            totalEvaluation += (piece.color === 'w' ? pieceValue[piece.type] : -pieceValue[piece.type]);
-                        }
-                    });
-                });
-                return totalEvaluation;
-            }
+      updateStatus();
 
-            function minimax(game, depth, alpha, beta, isMaximizingPlayer) {
-                if (depth === 0) return -evaluateBoard(game.board());
-                const moves = game.moves();
-                if (isMaximizingPlayer) {
-                    let bestVal = -Infinity;
-                    for (const move of moves) {
-                        game.move(move);
-                        bestVal = Math.max(bestVal, minimax(game, depth - 1, alpha, beta, false));
-                        game.undo();
-                        alpha = Math.max(alpha, bestVal);
-                        if (beta <= alpha) break;
-                    }
-                    return bestVal;
-                } else {
-                    let bestVal = Infinity;
-                    for (const move of moves) {
-                        game.move(move);
-                        bestVal = Math.min(bestVal, minimax(game, depth - 1, alpha, beta, true));
-                        game.undo();
-                        beta = Math.min(beta, bestVal);
-                        if (beta <= alpha) break;
-                    }
-                    return bestVal;
-                }
-            }
+      // プレイヤーが指した後、AI（ChatGPT側）が指す
+      window.setTimeout(makeAIMove, 250);
+    }
 
-            function getAIBestMove() {
-                let bestMove = null;
-                let bestValue = -Infinity;
-                const moves = game.moves();
-                const pgn = game.pgn({ max_width: 5 });
-                const key = pgn.split('\n')[3] || pgn;
-                if (learningData[key] && learningData[key].ai_loss > learningData[key].ai_win) {
-                    console.log("AI: この展開は分が悪い... 少し違う手を試そう。");
-                    moves.sort(() => Math.random() - 0.5);
-                }
+    function makeAIMove() {
+      if (game.game_over()) return;
 
-                for (const move of moves) {
-                    game.move(move);
-                    const boardValue = minimax(game, AI_SEARCH_DEPTH, -Infinity, Infinity, false);
-                    game.undo();
-                    if (boardValue > bestValue) {
-                        bestValue = boardValue;
-                        bestMove = move;
-                    }
-                }
-                return bestMove;
-            }
+      const possibleMoves = game.moves();
+      const randomIdx = Math.floor(Math.random() * possibleMoves.length);
+      const move = game.move(possibleMoves[randomIdx]);
 
-            function makeAIMove() {
-                if (game.isGameOver()) return;
-                $aiThinking.text('考え中...');
-                setTimeout(() => {
-                    const move = getAIBestMove();
-                    game.move(move);
-                    board.position(game.fen());
-                    updateStatus();
-                    $aiThinking.text('');
-                    if (game.isGameOver()) {
-                        recordGameResult();
-                    }
-                }, 250);
-            }
-            
-            function onDragStart(source, piece) {
-                return !game.isGameOver() && game.turn() === 'w' && piece.startsWith('w');
-            }
+      board.position(game.fen());
+      updateStatus();
+    }
 
-            function onDrop(source, target) {
-                try {
-                    const move = game.move({ from: source, to: target, promotion: 'q' });
-                    if (move === null) return 'snapback';
-                } catch (e) {
-                    return 'snapback';
-                }
-                updateStatus();
-                if (game.isGameOver()) {
-                    recordGameResult();
-                } else {
-                    window.setTimeout(makeAIMove, 250);
-                }
-            }
+    function updateStatus() {
+      let status = '';
 
-            function onSnapEnd() {
-                board.position(game.fen());
-            }
+      if (game.in_checkmate()) {
+        status = 'チェックメイト！ ' + (game.turn() === 'w' ? '黒の勝ち！' : '白の勝ち！');
+      } else if (game.in_draw()) {
+        status = '引き分けです。';
+      } else {
+        const moveColor = game.turn() === 'w' ? '白（あなた）' : '黒（AI）';
+        status = moveColor + ' の手番です';
+      }
 
-            const config = {
-                draggable: true,
-                position: 'start',
-                onDragStart: onDragStart,
-                onDrop: onDrop,
-                onSnapEnd: onSnapEnd,
-                pieceTheme: 'https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/img/chesspieces/wikipedia/{piece}.png'
-            };
-            board = Chessboard('board', config);
-            updateStatus();
-
-            $('#reset-button').on('click', () => {
-                game.reset();
-                board.start();
-                updateStatus();
-            });
-
-
-
-            $('#clear-memory-button').on('click', () => {
-                if (confirm("本当にAIの記憶（学習データ）をすべて消去しますか？")) {
-                    localStorage.removeItem('chessAIData');
-                    learningData = {};
-                    alert("AIの記憶を消去しました。");
-                }
-            });
-        });
-    })();
-    </script>
+      statusEl.textContent = status;
+    }
+  </script>
 </body>
 </html>
