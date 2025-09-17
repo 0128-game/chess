@@ -1,54 +1,138 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <title>ChatGPTチェス対戦</title>
-  <style>
-    body { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; background:#f0f0f0; font-family:Arial,sans-serif; }
-    chess-board { width:400px; margin-bottom:15px; }
-    #status { font-size:18px; font-weight:bold; }
-  </style>
-
-  <!-- 1. chess.js を先に読み込む -->
-  <script src="https://cdn.jsdelivr.net/npm/chess.js@1.0.0/dist/chess.min.js"></script>
-
-  <!-- 2. chessboard-element -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/chessboard-element@1.2.0/dist/chessboard-1.2.0.min.css">
-  <script src="https://cdn.jsdelivr.net/npm/chessboard-element@1.2.0/dist/chessboard-1.2.0.min.js"></script>
+<meta charset="UTF-8">
+<title>純正JavaScriptチェス</title>
+<style>
+  table { border-collapse: collapse; }
+  td {
+    width: 60px; height: 60px; text-align: center; vertical-align: middle;
+    font-size: 40px; cursor: pointer;
+  }
+  .white { background-color: #eee; }
+  .black { background-color: #888; color: white; }
+  #status { margin-top: 10px; font-size: 18px; font-weight: bold; }
+</style>
 </head>
 <body>
-  <h1>ChatGPTチェス対戦</h1>
-  <chess-board id="board" draggable-pieces></chess-board>
-  <div id="status">あなたが白です。先手を指してください。</div>
 
-  <script>
-    const game = new Chess(); // chess.jsのChessクラス
-    const board = document.getElementById('board');
-    const statusEl = document.getElementById('status');
+<h1>純正JavaScriptチェス</h1>
+<table id="board"></table>
+<div id="status">あなたの手番です（白）</div>
 
-    board.addEventListener('drop', (e)=>{
-      const move = game.move({from:e.detail.source, to:e.detail.target, promotion:'q'});
-      if(!move){ e.preventDefault(); return; }
-      updateStatus();
-      setTimeout(makeAIMove,250);
-    });
+<script>
+// 初期盤面
+let boardArray = [
+  ['r','n','b','q','k','b','n','r'],
+  ['p','p','p','p','p','p','p','p'],
+  ['','','','','','','',''],
+  ['','','','','','','',''],
+  ['','','','','','','',''],
+  ['','','','','','','',''],
+  ['P','P','P','P','P','P','P','P'],
+  ['R','N','B','Q','K','B','N','R']
+];
 
-    function makeAIMove(){
-      if(game.game_over()) return;
-      const moves = game.moves();
-      const move = moves[Math.floor(Math.random()*moves.length)];
-      game.move(move);
-      board.setPosition(game.fen());
-      updateStatus();
+const pieces = {
+  'P':'♙','R':'♖','N':'♘','B':'♗','Q':'♕','K':'♔',
+  'p':'♟','r':'♜','n':'♞','b':'♝','q':'♛','k':'♚'
+};
+
+let selected = null;
+let playerTurn = 'w'; // w=白, b=黒
+const statusEl = document.getElementById('status');
+
+function drawBoard() {
+  const table = document.getElementById('board');
+  table.innerHTML='';
+  for(let i=0;i<8;i++){
+    const tr = document.createElement('tr');
+    for(let j=0;j<8;j++){
+      const td = document.createElement('td');
+      td.className = (i+j)%2===0?'white':'black';
+      td.dataset.row=i;
+      td.dataset.col=j;
+      td.innerText = pieces[boardArray[i][j]] || '';
+      td.addEventListener('click', cellClick);
+      tr.appendChild(td);
+    }
+    table.appendChild(tr);
+  }
+}
+
+function cellClick(e){
+  const row = parseInt(this.dataset.row);
+  const col = parseInt(this.dataset.col);
+  const cell = boardArray[row][col];
+
+  if(selected){ // 移動
+    const sr = selected.row;
+    const sc = selected.col;
+
+    // 簡易ルール: 同じ色には移動不可
+    if(cell && ((playerTurn==='w' && cell.toUpperCase()===cell) || (playerTurn==='b' && cell.toLowerCase()===cell))){
+      selected = {row,col};
+      return;
     }
 
-    function updateStatus(){
-      let status='';
-      if(game.in_checkmate()) status='チェックメイト！'+(game.turn()==='w'?'黒の勝ち！':'白の勝ち！');
-      else if(game.in_draw()) status='引き分けです。';
-      else status=(game.turn()==='w'?'白（あなた）':'黒（AI）')+'の手番です';
-      statusEl.textContent=status;
+    boardArray[row][col] = boardArray[sr][sc];
+    boardArray[sr][sc] = '';
+    selected = null;
+    drawBoard();
+
+    playerTurn = playerTurn==='w'?'b':'w';
+    updateStatus();
+
+    if(playerTurn==='b'){
+      setTimeout(aiMove,300);
     }
-  </script>
+  } else {
+    // 選択
+    if(cell && ((playerTurn==='w' && cell.toUpperCase()===cell) || (playerTurn==='b' && cell.toLowerCase()===cell))){
+      selected = {row,col};
+    }
+  }
+}
+
+function aiMove(){
+  // ランダムAI: 適当に自分の駒を動かす
+  let movable=[];
+  for(let i=0;i<8;i++){
+    for(let j=0;j<8;j++){
+      const c = boardArray[i][j];
+      if(c && c.toLowerCase()===c){ // 黒
+        const moves = [[1,0],[1,1],[1,-1],[0,1],[0,-1],[-1,0],[-1,1],[-1,-1]];
+        moves.forEach(m=>{
+          const ni=i+m[0], nj=j+m[1];
+          if(ni>=0 && ni<8 && nj>=0 && nj<8){
+            const target = boardArray[ni][nj];
+            if(!target || target.toUpperCase()===target){
+              movable.push({from:[i,j], to:[ni,nj]});
+            }
+          }
+        });
+      }
+    }
+  }
+
+  if(movable.length>0){
+    const move = movable[Math.floor(Math.random()*movable.length)];
+    const f = move.from, t = move.to;
+    boardArray[t[0]][t[1]] = boardArray[f[0]][f[1]];
+    boardArray[f[0]][f[1]] = '';
+  }
+
+  playerTurn='w';
+  drawBoard();
+  updateStatus();
+}
+
+function updateStatus(){
+  statusEl.innerText = playerTurn==='w'?'あなたの手番です（白）':'AIの手番（黒）';
+}
+
+drawBoard();
+updateStatus();
+</script>
 </body>
 </html>
