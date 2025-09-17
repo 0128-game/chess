@@ -6,12 +6,12 @@
   <style>
     body {
       display: flex;
-      justify-content: center;
-      align-items: center;
       flex-direction: column;
-      height: 100vh;
+      align-items: center;
+      justify-content: center;
       background: #f0f0f0;
       font-family: Arial, sans-serif;
+      height: 100vh;
     }
     #board {
       width: 400px;
@@ -23,44 +23,43 @@
     }
   </style>
 
-  <!-- ① jQueryを一番最初に読み込む -->
-  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-
-  <!-- ② chessboard.jsとchess.js -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.js"></script>
+  <!-- chessboardjsx と同等の新ライブラリ -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/chessboard-element@1.2.0/dist/chessboard-1.2.0.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/chess.js@1.0.0/dist/chess.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chessboard-element@1.2.0/dist/chessboard-1.2.0.min.js"></script>
 </head>
 <body>
   <h1>ChatGPTとチェス対戦</h1>
-  <div id="board"></div>
+  <chess-board id="board" draggable-pieces></chess-board>
   <div id="status">あなたが白です。先手を指してください。</div>
 
   <script>
     const game = new Chess();
-    const board = Chessboard('board', {
-      draggable: true,
-      position: 'start',
-      onDrop: onDrop
-    });
-
+    const board = document.getElementById('board');
     const statusEl = document.getElementById('status');
 
-    function onDrop(source, target) {
+    // 駒をドラッグして離したときの処理
+    board.addEventListener('drop', (e) => {
+      const source = e.detail.source;
+      const target = e.detail.target;
+
       const move = game.move({
         from: source,
         to: target,
         promotion: 'q' // 常にクイーン昇格
       });
 
-      // 不正な手なら元に戻す
-      if (move === null) return 'snapback';
+      // 不正な手は元に戻す
+      if (move === null) {
+        e.preventDefault();
+        return;
+      }
 
       updateStatus();
 
-      // プレイヤーが指した後、AI（ChatGPT側）が指す
-      window.setTimeout(makeAIMove, 250);
-    }
+      // AIが指す
+      setTimeout(makeAIMove, 250);
+    });
 
     function makeAIMove() {
       if (game.game_over()) return;
@@ -69,7 +68,7 @@
       const randomIdx = Math.floor(Math.random() * possibleMoves.length);
       const move = game.move(possibleMoves[randomIdx]);
 
-      board.position(game.fen());
+      board.setPosition(game.fen());
       updateStatus();
     }
 
